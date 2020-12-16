@@ -1,0 +1,4 @@
+(deftarget example :clojure/lib
+  :srcs ["example.clj"])
+
+(deftarget baz :java/lib)
