@@ -1,4 +1,9 @@
-(deftarget example :clojure/lib
-  :srcs ["example.clj"])
+;; -*- mode: clojure; -*-
 
-(deftarget baz :java/lib)
+(deftarget hello-world :shell/file
+  :cmd "echo"
+  :args ["hello" "world"]
+  :out "hello-world.txt")
+
+;; (deftarget example :clojure/lib
+;;   :srcs ["example.clj"])

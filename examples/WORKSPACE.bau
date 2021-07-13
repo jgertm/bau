@@ -1,3 +1,4 @@
+;; -*- mode: clojure; -*-
 ;; def clojure_library_impl(ctx):
 ;;     toolchain = ctx.toolchains["@rules_clojure//:toolchain"]
 
@@ -31,16 +32,25 @@
 ;;         ),
 ;;     ]
 
-(defrule :clojure/lib [toolchain {:target/keys [name] :keys [srcs]}]
-  (let [jar (actions/declare-file (format "%s.jar" name))
-        cmd (substitute "{java} -cp {classpath} -Dclojure.compile.jar={jar} clojure.main {script} {sources}"
-              :java (:java toolchain)
-              :classpath (str/join ":" (-> toolchain :files :runtime))
-              :jar jar
-              :script "library.clj"
-              :sources (str/join " " srcs))]
-    (actions/run-shell cmd
-      :outputs jar)))
+(defrule :shell/file
+  [ctx {:keys [cmd args out]}]
+  (actions/run-shell ctx
+    {:outputs [out]
+     :cmd (concat [cmd] args [">" out])}))
 
-(deftarget example :clojure/lib
-  :srcs ["example.clj"])
+;; (defrule :clojure/lib
+;;   [toolchain {:target/keys [name] :keys [srcs]}]
+;;   (let [jar (actions/declare-file (format "%s.jar" name))
+;;         cmd (substitute "{java} -cp {classpath} -Dclojure.compile.jar={jar} clojure.main {script} {sources}"
+;;               :java (:java toolchain)
+;;               :classpath (str/join ":" (-> toolchain :files :runtime))
+;;               :jar jar
+;;               :script "library.clj"
+;;               :sources (str/join " " srcs))]
+;;     (actions/run-shell cmd
+;;       :outputs jar
+;;       :inputs srcs
+;;       :progress-message (format "Building %s" name))))
+
+;; (deftarget example :clojure/lib
+;;   :srcs ["example.clj"])

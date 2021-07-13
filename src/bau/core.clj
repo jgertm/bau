@@ -1,63 +1,82 @@
 (ns bau.core
   (:gen-class)
   (:require [cli-matic.core :refer [run-cmd]]
+            [clojure.pprint :as pprint]
             [clojure.string :as str]
             [datoteka.core :as fs]
             [sci.core :as sci]))
 
-(def deftarget-list ^:sci/macro
-  (fn [_&form _&env name type & args]
-    (let [spec
-          (merge
-            (apply array-map args)
-            `#:target{:name '~name
-                      :type ~type})]
-      spec)))
+(def workspace
+  (fs/path [fs/*cwd* "examples"]))
 
-(defn list-file
-  [{:keys [root]} file]
-  (let []
-    (map
-      (fn [form]
-        (-> form
-          (sci/eval-string {:bindings   {'deftarget  deftarget-list}})
-          (update :target/name #(str "//" (fs/relativize (fs/parent file) root) ":" (str %)))))
-      (str/split (slurp file) #"(?m)^$"))))
-
-(defn find-workspace-root
-  [dir]
+(def workspace-file
   (some
-    (fn [dir] (when (seq (fs/list-dir dir "WORKSPACE.bau")) dir))
-    (take-while some? (iterate fs/parent dir))))
+    #(when (-> % (fs/name) (= "WORKSPACE.bau")) %)
+    (fs/list-dir workspace)))
 
-(defn query-targets
-  [{:keys [prefix]}]
-  (let [root (find-workspace-root fs/*cwd*)
-        targets (->> (fs/file root)
-                  (file-seq)
-                  (map fs/path)
-                  (filter #(-> % (fs/name) (= "BUILD.bau")))
-                  (mapcat (partial list-file {:root root}))
-                  (map :target/name)
-                  (filter #(if prefix (str/starts-with? % prefix) true)))]
-    (run! println targets)))
+(def build-files
+  (filter
+    #(when (-> % (fs/name) (= "BUILD.bau")) %)
+    (fs/list-dir workspace)))
 
+(defn substitute
+  [template & substitutions]
+  (let [substitutions
+        (apply hash-map substitutions)]
+    (str/replace
+      template
+      #"\{([a-z-]+)\}"
+      (fn [[_ match]]
+        (str (get substitutions (keyword match)))))))
 
-(def options
-  {:command     "bau"
-   :description "An incremental build system"
-   :version     "0.0"
-   :subcommands
-   [{:command     "query"
-     :description "Lists all targets matching the path prefix, or the current directory if no prefix is given"
-     :opts        [{:option  "prefix"
-                    :short   0
-                    :as      "Path prefix"
-                    :type    :string
-                    :default nil}]
-     :runs        query-targets}]})
+(def defrule ^:sci/macro
+  (fn [_ _ type argv body]
+    `(defmethod ~'eval-rule ~type
+       ~(into ['_] argv)
+       ~body)))
 
+(def deftarget ^:sci/macro
+  (fn [_ _ name type & args]
+    (let [args (apply hash-map args)]
+      `(~'eval-rule ~type ~'ctx ~args))))
 
-(defn -main
-  [& args]
-  (run-cmd args options))
+(defprotocol Action
+  (run-shell [mode {:keys [outputs cmd]}]))
+
+(defrecord LogActions []
+  Action
+  (run-shell [mode args]
+    (println [:actions/run-shell mode args])))
+
+(defn init-env []
+  (let [env (atom {})]
+    (sci/eval-string
+      (pr-str
+        '(do
+           (defmulti eval-rule (fn [type ctx args] type))))
+      {:env env})
+    env))
+
+(defn load-rules [env]
+  (sci/eval-string
+   (slurp workspace-file)
+   {:env env
+    :bindings {'defrule defrule}
+    :namespaces {'actions {'run-shell run-shell}}}))
+
+(defn load-targets [env]
+  (doseq [file build-files]
+   (-> file
+     slurp
+     (sci/eval-string
+       {:env env
+        :bindings {'deftarget deftarget
+                   'ctx (->LogActions)}}))))
+
+(->> @(doto (init-env)
+        (load-rules)
+        (load-targets))
+  :namespaces
+  (remove
+    (fn [[ns _]] (str/starts-with? (name ns) "clojure")))
+  (into {}))
