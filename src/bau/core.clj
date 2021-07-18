@@ -103,11 +103,10 @@
   [{:keys [inputs]}]
   (let [dir (fs/create-tempdir "bau")]
     (doseq [input inputs]
-      ;; TODO: copy/link files
-      (java.nio.file.Files/copy
-        input
+      (java.nio.file.Files/createSymbolicLink
         (fs/join dir (fs/name input))
-        (make-array java.nio.file.CopyOption 0))
+        input
+        (make-array java.nio.file.attribute.FileAttribute 0))
       ;; TODO: permissions etc.
       nil)
     {:dir dir}))
