@@ -33,9 +33,10 @@
 ;;     ]
 
 (defrule :shell/file
-  [ctx {:keys [cmd args out]}]
-  (actions/run-shell ctx
-    {:outputs [out]
+  [{:keys [cmd args data out]}]
+  (actions/run-shell!
+    {:inputs data
+     :outputs [out]
      :cmd (concat [cmd] args [">" out])}))
 
 ;; (defrule :clojure/lib

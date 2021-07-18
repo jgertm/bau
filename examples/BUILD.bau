@@ -5,5 +5,16 @@
   :args ["hello" "world"]
   :out "hello-world.txt")
 
+(deftarget another :shell/file
+  :cmd "cat"
+  :args ["hello-world.txt" "hello-world.txt"]
+  :data [hello-world]
+  :out "another.txt")
+
+(deftarget third :shell/file
+  :cmd "echo"
+  :args ["foo"]
+  :out "third.txt")
+
 ;; (deftarget example :clojure/lib
 ;;   :srcs ["example.clj"])

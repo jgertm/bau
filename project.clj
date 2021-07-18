@@ -5,7 +5,8 @@
             :url "https://www.eclipse.org/legal/epl-2.0/"}
   :dependencies [[org.clojure/clojure "1.10.0"]
                  [funcool/datoteka "1.2.0"]
-                 [borkdude/sci "0.1.1-alpha.10"]]
+                 [borkdude/sci "0.2.6"]
+                 [aysylu/loom "1.0.2"]]
   :main ^:skip-aot bau.core
   :profiles {:uberjar {:aot :all}}
   :repl-options {:init-ns bau.core})
